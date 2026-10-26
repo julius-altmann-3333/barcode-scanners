@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode & QR-Code Generator</title>
+    <!-- Online-Skripte (Für echte Offline-Nutzung lokal herunterladen und hier verknüpfen) -->
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://cloudflare.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 24px; margin-top: 0; text-align: center; }
+        .description { font-size: 14px; color: #666; text-align: center; margin-bottom: 25px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #0066cc; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        button:hover { background-color: #0052a3; }
+        .output-box { margin-top: 30px; padding: 20px; background: #f8f9fa; border: 2px dashed #ddd; border-radius: 8px; display: flex; flex-direction: column; align-items: center; min-height: 150px; }
+        #barcode { max-width: 100%; }
+        #qrcode { padding: 10px; background: white; }
+        .hidden { display: none !important; }
+        .download-btn { margin-top: 15px; background-color: #28a745; }
+        .download-btn:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Barcode & QR-Code Generator</h1>
+    <p class="description">Erstellen Sie Codes online oder offline im Browser.</p>
+    
+    <div class="form-group">
+        <label for="codeType">Code-Typ wählen:</label>
+        <select id="codeType" onchange="toggleInputs()">
+            <option value="QR">QR-Code (Für Website-Links / URLs)</option>
+            <option value="CODE128">Barcode: Code 128 (Universell)</option>
+            <option value="EAN13">Barcode: EAN-13 (Handel)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="textInput" id="inputLabel">Website-Link (URL):</label>
+        <input type="text" id="textInput" placeholder="https://example.com" value="https://">
+    </div>
+
+    <button onclick="generateCode()">Code generieren</button>
+
+    <div class="output-box">
+        <div id="qrcode" class="hidden"></div>
+        <svg id="barcode" class="hidden"></svg>
+        <p id="placeholderText" style="color: #999; margin: 0;">Ihr generierter Code erscheint hier</p>
+        <button id="downloadBtn" class="download-btn hidden" onclick="downloadImage()">Grafik herunterladen</button>
+    </div>
+</div>
+
+<script>
+    function toggleInputs() {
+        const type = document.getElementById('codeType').value;
+        const label = document.getElementById('inputLabel');
+        const input = document.getElementById('textInput');
+        
+        if (type === 'QR') {
+            label.textContent = "Website-Link (URL):";
+            input.placeholder = "https://example.com";
+            input.value = "https://";
+        } else if (type === 'EAN13') {
+            label.textContent = "Numerischer Code (Exakt 12 oder 13 Ziffern):";
+            input.placeholder = "1234567890128";
+            input.value = "1234567890128";
+        } else {
+            label.textContent = "Inhalt (Text oder Zahlen):";
+            input.placeholder = "PRODUKT-123";
+            input.value = "PRODUKT-123";
+        }
+    }
+
+    function generateCode() {
+        const type = document.getElementById('codeType').value;
+        const val = document.getElementById('textInput').value.trim();
+        const qrDiv = document.getElementById('qrcode');
+        const barcodeSvg = document.getElementById('barcode');
+        const placeholder = document.getElementById('placeholderText');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        qrDiv.innerHTML = "";
+        qrDiv.classList.add('hidden');
+        barcodeSvg.classList.add('hidden');
+        placeholder.classList.add('hidden');
+        downloadBtn.classList.add('hidden');
+
+        if (!val) { alert("Bitte einen Wert eingeben."); placeholder.classList.remove('hidden'); return; }
+
+        try {
+            if (type === 'QR') {
+                qrDiv.classList.remove('hidden');
+                new QRCode(qrDiv, { text: val, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.H });
+            } else {
+                barcodeSvg.classList.remove('hidden');
+                JsBarcode("#barcode", val, { format: type, lineColor: "#000", width: 2, height: 80, displayValue: true });
+            }
+            downloadBtn.classList.remove('hidden');
+        } catch (error) {
+            alert("Fehler beim Generieren. Überprüfen Sie das Format.");
+            placeholder.classList.remove('hidden');
+        }
+    }
+
+    function downloadImage() {
+        const type = document.getElementById('codeType').value;
+        if (type === 'QR') {
+            const img = document.querySelector('#qrcode img');
+            if (img) triggerDownload(img.src, 'qrcode.png');
+        } else {
+            const svg = document.getElementById('barcode');
+            const svgString = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+            const blobURL = URL.createObjectURL(svgBlob);
+            const image = new Image();
+            image.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width; canvas.height = image.height;
+                canvas.getContext('2d').drawImage(image, 0, 0);
+                triggerDownload(canvas.toDataURL("image/png"), 'barcode.png');
+            };
+            image.src = blobURL;
+        }
+    }
+
+    function triggerDownload(dataUrl, filename) {
+        const a = document.createElement('a');
+        a.href = dataUrl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+</script>
+</body>
+</html>
